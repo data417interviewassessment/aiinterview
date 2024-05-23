@@ -25,10 +25,10 @@ This application facilitates recording audio responses to interview questions, c
 
 3. **Set Up Google Cloud Credentials**
     - Create a service account in Google Cloud with access to Google Cloud Storage.
-    - Download the service account key file and save it as `ai-interview-assessment-ce180dfa157c.json`.
+    - Download the service account key file and save it as `key.json`.
     - Set the environment variable for Google Application Credentials:
     ```bash
-    export GOOGLE_APPLICATION_CREDENTIALS="path/to/ai-interview-assessment-ce180dfa157c.json"
+    export GOOGLE_APPLICATION_CREDENTIALS="path/to/key.json"
     ```
 
 4. **Set Up OpenAI API**
@@ -58,7 +58,7 @@ This application facilitates recording audio responses to interview questions, c
 
 - `app.py`: Main application script
 - `requirements.txt`: List of dependencies
-- `ai-interview-assessment-ce180dfa157c.json`: Google Cloud service account key file (not included in the repository)
+- `key.json`: Google Cloud service account key file (not included in the repository)
 
 ## Dependencies
 
