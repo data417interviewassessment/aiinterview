@@ -1,0 +1,11 @@
+streamlit
+pyaudio
+google-cloud
+google-cloud-speech
+google-cloud-storage
+SpeechRecognition
+pydub
+requests
+OpenAI
+reportlab
+

@@ -1,0 +1,335 @@
+import streamlit as st
+import os
+import io
+import pyaudio
+import wave
+from google.cloud import storage
+import time
+from pydub import AudioSegment, silence
+import speech_recognition as sr
+import shutil
+import requests
+from openai import OpenAI
+import httpx
+import csv
+
+
+recog=sr.Recognizer()
+
+client = OpenAI(
+    base_url="https://api.chatgptid.net/v1", 
+    api_key="Key",
+    http_client=httpx.Client(
+        base_url="https://api.chatgptid.net/v1",
+        follow_redirects=True,
+    ),
+)
+
+# Set up Google Cloud credentials
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "key.json"
+
+# Define the questions for the interview
+questions = [
+    "What is data science?",
+    "What is collaborative filtering in recommendation systems?",
+    "What does being an ethical data scientist mean to you?",
+]
+
+
+q1answers = [
+   "Data science is the systematic study of data. Its aim is to extract insights and knowledge to inform decision-making.",
+    "Data science involves analyzing raw data using various techniques like statistics and machine learning. The goal is to extract valuable insights.",
+    "In essence, data science is the practice of deriving actionable insights from data. This is done through rigorous analysis and interpretation.",
+    "Data science is the interdisciplinary field that combines domain knowledge, programming, and statistical analysis. Its purpose is to solve complex problems.",
+    "Data science is the process of collecting, cleaning, analyzing, and interpreting data. The objective is to uncover patterns, trends, and correlations.",
+    "Data science is about transforming data into actionable insights. These insights drive business value and innovation.",
+    "Data science involves applying algorithms and models to data. This is done to discover patterns, make predictions, and optimize processes.",
+    "Data science is the practice of extracting knowledge and insights from structured and unstructured data. The goal is to drive strategic decision-making.",
+    "Data science encompasses a wide range of techniques and methodologies to analyze data. Its aim is to extract actionable insights.",
+    "Data science is the process of using data to answer questions, solve problems, and make informed decisions. It involves rigorous analysis and interpretation.",
+    "Data science is the practice of transforming data into knowledge. This enables organizations to derive value and gain insights.",
+    "Data science involves exploring, analyzing, and interpreting data. Its objective is to extract valuable insights and drive decision-making.",
+    "Data science is the field that focuses on extracting insights and patterns from data. These insights inform decision-making processes.",
+    "Data science is about leveraging data to gain insights, solve problems, and drive innovation. It applies various techniques and methodologies across different domains.",
+    "Data science is the practice of using data-driven approaches to analyze data. Its goal is to uncover actionable insights.",
+    "Data science involves applying statistical and computational techniques to analyze data. The aim is to extract meaningful insights."
+]
+
+q2answers = [
+    "Collaborative filtering is a method employed in recommendation systems where items are suggested to users based on the preferences and behaviors of similar users. It essentially leverages collective user data to make personalized recommendations.",
+    "In essence, collaborative filtering involves analyzing user-item interactions to identify patterns and similarities among users. By understanding these relationships, recommendation systems can offer tailored suggestions to users.",
+    "Collaborative filtering is a cornerstone of recommendation systems, relying on the principle that users who have similar preferences for certain items will likely have similar preferences for other items as well. It's about harnessing the collective wisdom of users to enhance the recommendation process.",
+    "At its core, collaborative filtering is about predicting user preferences by comparing their interactions with items to those of other users. By identifying users with similar tastes, recommendation systems can make accurate and relevant suggestions.",
+    "Collaborative filtering involves the analysis of user behavior to make predictions about what other items a user might like based on their interactions with similar items. It's like creating a network of user preferences to guide personalized recommendations.",
+    "Collaborative filtering is a technique used in recommendation systems to generate personalized suggestions for users based on their past interactions with items and the interactions of similar users. This method relies on the principle of 'wisdom of the crowd,' where recommendations are made by aggregating preferences and behaviors of a large user community.",
+    "In collaborative filtering, recommendations are generated by comparing the preferences and behaviors of users in a dataset. This process involves constructing a user-item interaction matrix, where each entry represents the level of interaction between a user and an item. By identifying users with similar preferences and items liked by those users, collaborative filtering predicts user preferences for items they haven't interacted with yet.",
+    "Collaborative filtering is like when recommendation systems analyze what users have interacted with and then suggest similar items. It's like when you go to a bookstore, and the staff recommends books based on what other customers have bought.",
+    "Collaborative filtering is essentially about making predictions about user preferences by looking at the preferences of similar users. It's like if you're unsure about which movie to watch, and your friend recommends a movie that they think you'll like based on your previous choices.",
+    "Collaborative filtering is a method used in recommendation systems to provide personalized suggestions to users based on the preferences of similar users. It's about leveraging the collective behavior of users to enhance the recommendation process.",
+    "In the realm of recommendation systems, collaborative filtering is the process of suggesting items to users based on the preferences and actions of similar users. It's like having a virtual buddy who knows your tastes and suggests cool stuff you might enjoy.",
+    "Collaborative filtering is a technique employed by recommendation systems to analyze user behavior and make personalized recommendations based on the behavior of similar users. It's about using the collective knowledge of users to enhance the recommendation process.",
+    "Collaborative filtering is a key component of recommendation systems, where items are suggested to users based on the preferences and behaviors of similar users. It's about harnessing the collective knowledge of users to improve the recommendation accuracy.",
+    "At its core, collaborative filtering involves analyzing user interactions to identify similarities and make predictions about user preferences. It's like creating a network of user preferences to guide personalized recommendations.",
+    "Collaborative filtering is a method employed by recommendation systems to make predictions about user preferences by analyzing the behavior of similar users. It's like tapping into a network of user preferences to provide personalized recommendations.",
+    "Collaborative filtering is a technique used in recommendation systems where items are suggested to users based on similarities with other users. It's like having a study group where everyone shares their favorite study resources and you get recommendations based on that.",
+    "Collaborative filtering involves analyzing user behavior to identify patterns and similarities among users. By understanding these relationships, recommendation systems can provide tailored recommendations to users.",
+    "Collaborative filtering is a method used in recommendation systems where items are suggested to users based on the preferences and behaviors of similar users. It's about harnessing the collective knowledge of users to improve the recommendation accuracy.",
+    "Collaborative filtering is a technique employed by recommendation systems to make predictions about user preferences by analyzing the behavior of similar users. It's like tapping into a network of user preferences to provide personalized recommendations."
+]
+
+q3answers = [
+    "Ethical data science entails upholding principles of fairness, transparency, and accountability throughout the entire data lifecycle, ensuring that data is used responsibly to benefit society while minimizing harm.",
+    "Being an ethical data scientist means recognizing the societal implications of data-driven decisions and actively working to address biases, protect privacy, and promote equitable outcomes for all individuals affected by data analysis.",
+    "To me, ethical data science involves not only understanding the potential impacts of data-driven decisions but also actively working to mitigate biases, protect sensitive information, and uphold ethical standards throughout the entire data lifecycle.",
+    "Being an ethical data scientist requires a commitment to integrity, honesty, and respect for individual privacy, ensuring that data analysis is conducted ethically and with the best interests of society in mind.",
+    "Ethical data science means prioritizing the well-being and rights of individuals, communities, and society as a whole, while striving for fairness, transparency, and accountability in all data-related activities.",
+    "To be an ethical data scientist means adhering to ethical guidelines and standards, respecting the privacy and dignity of individuals, and ensuring that data is used in a responsible and socially beneficial manner.",
+    "Ethical data science involves not only technical proficiency but also a deep understanding of the ethical implications of data analysis, including issues of bias, discrimination, and privacy.",
+    "Being an ethical data scientist requires a commitment to continuous learning and improvement, staying informed about emerging ethical challenges in data science and taking proactive steps to address them.",
+    "Ethical data science means critically examining the potential societal impacts of data-driven technologies and advocating for policies and practices that promote fairness, justice, and equity.",
+    "To me, ethical data science involves empowering individuals to understand and control how their data is used, fostering transparency and accountability in data-driven decision-making processes.",
+    "Being an ethical data scientist entails recognizing the limitations and biases inherent in data and actively working to mitigate them, while also advocating for diversity and inclusivity in data collection and analysis.",
+    "Ethical data science requires a commitment to continuous reflection, dialogue, and collaboration with diverse stakeholders to ensure that data-driven decisions benefit society as a whole.",
+    "To be an ethical data scientist means acknowledging the potential for harm in data analysis and taking proactive measures to prevent or mitigate adverse effects on individuals and communities.",
+    "Ethical data science involves respecting the autonomy and agency of individuals and communities, seeking informed consent for data collection and analysis, and protecting sensitive information from unauthorized access or misuse.",
+    "Being an ethical data scientist means recognizing the social, cultural, and ethical contexts in which data is collected and used, and striving to ensure that data-driven technologies serve the public good.",
+    "Ethical data science requires humility and empathy, recognizing that data analysis can have real-world consequences for individuals and communities, and taking responsibility for the ethical implications of our work.",
+    "To me, ethical data science means being a steward of data, using it responsibly and ethically to inform decision-making processes and promote positive social change.",
+    "Being an ethical data scientist involves challenging biases and assumptions in data analysis, advocating for diversity and inclusivity in data science practices, and fostering a culture of ethical reflection and accountability.",
+    "Ethical data science means valuing transparency, honesty, and integrity in all data-related activities, and advocating for ethical guidelines and standards to ensure the responsible use of data.",
+    "To be an ethical data scientist means being a champion for justice, equity, and fairness in data-driven decision-making processes, and using our skills and expertise to empower marginalized communities and advance social progress."
+]
+
+def download_report(bucket_name, file_name):
+    """Triggered when the download button for the report is clicked."""
+    # Fetch the file content from Google Cloud Storage
+    content = fetch_file_content_from_gcs(bucket_name, file_name)
+    
+    return content
+
+def fetch_file_content_from_gcs(bucket_name, file_name):
+    """Fetch file content from Google Cloud Storage."""
+    # Initialize Google Cloud Storage client
+    storage_client = storage.Client()
+
+    # Fetch the file content
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(file_name)
+    content = blob.download_as_string()
+
+    return content
+
+def generate_report_and_upload(questions, answers, scores, feedbacks, file_name, bucket_name):
+    # Create a list of data for the PDF table
+    data = [["Question", "Answer", "Score", "Feedback"]]
+    for i in range(len(questions)):
+        data.append([questions[i], answers[i], scores[i], feedbacks[i]])
+
+    # Write data to CSV file
+    with open(file_name, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(data)
+
+    # Upload PDF file to storage
+    upload_to_storage(file_name, bucket_name)
+    
+    return "CSV File Created"
+
+
+# Function to record audio for a maximum duration of one minute
+def record_audio(filename, max_duration=30, preparation_time=30, sample_rate=44100, chunk_size=1024):
+    progress_preparation = st.progress(0)
+    preparation_text = st.empty()  # Dynamic placeholder for preparation timer
+    for sec in range(preparation_time):
+        preparation_text.text(f"Preparation time: {preparation_time - sec} seconds")
+        progress_preparation.progress((sec + 1) / preparation_time)
+        time.sleep(1)
+    progress_preparation.empty()
+    preparation_text.empty()
+
+    audio = pyaudio.PyAudio()
+    stream = audio.open(format=pyaudio.paInt16, channels=1, rate=sample_rate, input=True,
+                        frames_per_buffer=chunk_size)
+    frames = []
+
+    progress_recording = st.progress(0)
+    recording_text = st.empty()  # Dynamic placeholder for recording timer
+    start_time = time.time()
+    while time.time() - start_time < max_duration:
+        recording_time = int(max_duration - (time.time() - start_time))
+        recording_text.text(f"Recording time: {recording_time} seconds")
+        progress = min(100, int((max_duration - recording_time) / max_duration * 100))
+        progress_recording.progress(progress)
+        data = stream.read(chunk_size)
+        frames.append(data)
+    progress_recording.empty()
+    recording_text.empty()
+
+    stream.stop_stream()
+    stream.close()
+    audio.terminate()
+
+    with wave.open(filename, 'wb') as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(audio.get_sample_size(pyaudio.paInt16))
+        wf.setframerate(sample_rate)
+        wf.writeframes(b''.join(frames))
+
+    return filename
+
+def convert_to_text(filename, subfolder):
+    transcript = ""
+    audio_segment = AudioSegment.from_file(filename)
+    chunks = silence.split_on_silence(audio_segment, min_silence_len=500, silence_thresh=audio_segment.dBFS-20, keep_silence=100)
+    for i in range(len(chunks)):
+        # Export the chunk to the subfolder
+        chunk_filename = f"{subfolder}/{i}.wav"
+        chunks[i].export(chunk_filename, format="wav")
+        
+        # Create the AudioFile object with the subfolder path
+        with sr.AudioFile(chunk_filename) as source:
+            recorded = recog.record(source)
+            try:
+                text = recog.recognize_google(recorded)
+                transcript += " " + text
+            except sr.UnknownValueError:
+                # Handle unknown value error
+                pass
+            except sr.RequestError as e:
+                # Handle request error
+                print("Could not request results from Google Speech Recognition service; {0}".format(e))
+    return transcript
+
+
+
+def upload_to_storage(filename, bucket_name):
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+
+    # Upload the file to the subfolder of the name
+    blob = bucket.blob(filename)
+    try:
+        blob.upload_from_filename(filename)
+        return blob.public_url
+    except Exception as e:
+        st.error(f"Error uploading file: {e}")
+        return None
+
+def llmfeedback(transcript, answers):
+    messages = [
+        {
+            "role": "system",
+            "content": "Now you are an interviewer. I will provide several standard answers to a question and a person's response. Please give a score between 0 and 1 to indicate how closely the response matches the standard or any other academic answers, the score must include 2 decimals place. Provide general feedback and dont mention the standard answers to help the respondent improve their score. Give the score and the feedback as strings to easily extract them."
+        }
+    ]
+
+    # Loop through each answer in q1answers and add it to the messages list along with its index
+    for idx, answer in enumerate(answers, start=1):
+        messages.append({"role": "user", "content": f"Answer {idx}: {answer}"})
+
+    # Add the user's response (transcript) to the messages list
+    messages.append({"role": "user", "content": f"Response: {transcript}"})
+
+    # Create the completion with the dynamic messages list
+    completion = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=messages
+    )
+    
+    # Extract score and feedback from completion output
+    output = completion.choices[0].message.content
+    # print(output)
+    score, feedback = extract_score_and_feedback(output)
+    
+    return score, feedback
+
+def extract_score_and_feedback(output):
+    # Find the indices of the score and feedback
+    score_start_index = output.find("Score:")
+    feedback_start_index = output.find("Feedback:")
+
+    # Extract the score and feedback
+    score = output[score_start_index + len("Score:"):feedback_start_index].strip()
+    feedback = output[feedback_start_index + len("Feedback:"):].strip()
+
+    return score, feedback
+
+
+
+# Main Streamlit app
+def main():
+    st.set_page_config(
+        page_title="Audio Interview Recording App",
+        page_icon=":microphone:",
+        layout="centered",
+        initial_sidebar_state="expanded"
+    )
+
+    st.title("Ethical Interview Assessment")
+
+    # User details section
+    st.header("User Details")
+    name = st.text_input("Name", "")
+    email = st.text_input("Email", "")
+
+    st.markdown("### Instructions")
+    st.write("You will have three questions to answer.")
+    st.write("Each question has a preparation time of 30 seconds and recording time of 30 seconds.")
+
+    # Interview questions section
+    if st.button("Start Interview"):
+        if name and email:
+            st.write("Interview started. Please answer the following questions:")
+            bucket_name = "audioanswers"  # Replace with your bucket name
+            user_subfolder = name.lower().replace(" ", "_")  # Create user subfolder dynamically
+
+            scores = []
+            feedbacks = []
+            answers = []
+
+            for i, question in enumerate(questions, start=1):
+                if not os.path.exists(user_subfolder):
+                    os.makedirs(user_subfolder)
+                st.subheader(f"Question {i}")
+                st.markdown(f"**{question}**")  # Make the question text bold
+                filename = f"{user_subfolder}/response_{i}.wav"
+                record_audio(filename)
+                st.success("Recording complete.")
+                st.info("Uploading audio answer to secure storage...")
+                transcript = ""
+                transcript = convert_to_text(filename, user_subfolder)
+                # st.info("Your Transcript: " + transcript)
+                # st.info(f"Printing Question {i} score")
+                score = 0
+                feedback = ""
+                if(i ==1):
+                  score, feedback =  llmfeedback(transcript, q1answers)
+                elif(i == 2):
+                  score, feedback =  llmfeedback(transcript, q2answers)
+                elif(i == 3):
+                  score, feedback =  llmfeedback(transcript, q3answers)
+                # st.info(f"Question {i} matching score is  {score}")
+                # st.info(f"Question {i} feedback is  {feedback}")
+                # Update excel
+                scores.append(score)
+                feedbacks.append(feedback)
+                answers.append(transcript)
+                upload_to_storage(filename, bucket_name)
+                st.success("Upload complete.")
+            # Generate PDF report and upload to GCS
+            st.write("Generating CSV report ...")
+            csv_file_name = f"{user_subfolder}/interview_report.csv"
+            generate_report_and_upload(questions, answers, scores, feedbacks,csv_file_name, bucket_name)
+            st.success(f"CSV report generated.")
+            shutil.rmtree(user_subfolder)
+            st.write("Thank you for using the Audio Interview Recording App!")
+
+            # Create the download button
+            content = download_report(bucket_name,csv_file_name)
+            st.download_button(label="Download Report", data=content, file_name=csv_file_name)
+
+        else:
+            st.warning("Please provide your details before starting the interview.")
+
+if __name__ == "__main__":
+    main()
